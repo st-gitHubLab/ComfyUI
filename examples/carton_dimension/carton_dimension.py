@@ -164,3 +164,44 @@ class TorchMLPRegressor:
         with torch.inference_mode():
             output = self.model(torch.tensor(normalized[None], dtype=torch.float32)).numpy()[0] * self.target_scale
         return tuple(output.tolist())
+
+
+def extract_video_features(
+    video_path: str | Path,
+    detector: Detector,
+    border_margin: int = 2,
+    min_samples: int = 8,
+) -> np.ndarray | None:
+    """Extract one 9-value feature vector from a labeled training video.
+
+    The selection logic is intentionally identical to inference: use the
+    highest-confidence carton, collect only while fully inside the frame, and
+    complete the track as soon as it touches a border (or reaches EOF).
+    """
+    import cv2
+
+    capture = cv2.VideoCapture(str(video_path))
+    if not capture.isOpened():
+        raise ValueError(f"Cannot open training video: {video_path}")
+    feature_frames: list[tuple[float, float, float]] = []
+    collecting = False
+    try:
+        while True:
+            ok, frame = capture.read()
+            if not ok:
+                break
+            frame_height, frame_width = frame.shape[:2]
+            bbox = max(detector.detect(frame), key=lambda box: box.confidence, default=None)
+            inside = bbox is not None and bbox.fully_inside(frame_width, frame_height, border_margin)
+            if inside:
+                collecting = True
+                feature_frames.append((bbox.width / frame_width, bbox.height / frame_height, bbox.area / (frame_width * frame_height)))
+            elif collecting:
+                break
+    finally:
+        capture.release()
+
+    if len(feature_frames) < min_samples:
+        return None
+    values = np.asarray(feature_frames, dtype=np.float32)
+    return np.concatenate((values.mean(axis=0), values.std(axis=0), values.max(axis=0)))
