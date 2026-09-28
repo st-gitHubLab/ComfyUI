@@ -72,11 +72,18 @@ class CartonDimensionPipeline:
     min_samples: int = 8
     _features: list[tuple[float, float, float]] = field(default_factory=list, init=False)
     _collecting: bool = field(default=False, init=False)
+    last_detection: BBox | None = field(default=None, init=False)
+
+    @property
+    def collecting(self) -> bool:
+        """Whether the current carton is contributing valid feature frames."""
+        return self._collecting
 
     def process(self, frame: np.ndarray) -> DimensionResult | None:
         """Process one BGR/RGB frame and return a result when sampling ends."""
         height, width = frame.shape[:2]
         bbox = self._best_detection(self.detector.detect(frame))
+        self.last_detection = bbox
         fully_inside = bbox is not None and bbox.fully_inside(width, height, self.border_margin)
 
         if not self._collecting:
@@ -91,6 +98,15 @@ class CartonDimensionPipeline:
             return None
 
         # A missing detection or a box touching the border is the exit event.
+        result = self._finish()
+        self._collecting = False
+        self._features = []
+        return result
+
+    def flush(self) -> DimensionResult | None:
+        """Finish the active carton at end-of-video and return its prediction."""
+        if not self._collecting:
+            return None
         result = self._finish()
         self._collecting = False
         self._features = []

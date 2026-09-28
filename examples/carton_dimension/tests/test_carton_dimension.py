@@ -25,3 +25,15 @@ def test_short_track_does_not_trigger_regression():
     frame = np.zeros((100, 100, 3), dtype=np.uint8)
     assert pipeline.process(frame) is None
     assert pipeline.process(frame) is None
+
+
+def test_flush_predicts_carton_at_end_of_video():
+    regressor = FixedRegressor()
+    pipeline = CartonDimensionPipeline(SequenceDetector([[BBox(10, 10, 30, 30)], [BBox(12, 10, 34, 30)]]), regressor, min_samples=2)
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    pipeline.process(frame)
+    pipeline.process(frame)
+    result = pipeline.flush()
+    assert result is not None
+    assert result.sampled_frames == 2
+    assert not pipeline.collecting
