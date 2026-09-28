@@ -1,10 +1,23 @@
 # 纸箱视频尺寸回归工程
 
-该示例实现流程图中的完整闭环：YOLO 每帧检测纸箱；仅当 BBox 完全进入画面时开始记录归一化的宽、高、面积；当检测框触及边界或消失时停止采集，聚合有效帧（均值、标准差、最大值，共 9 个特征），再由 MLP 输出 `Length, Width, Height`。
+该示例实现流程图中的完整闭环：YOLO 每帧检测纸箱；仅当 BBox 完全进入画面时记录归一化的宽、高、面积；检测框触及边界或消失时停止采集，聚合有效帧（均值、标准差、最大值，共 9 个特征），再由 MLP 输出 `Length, Width, Height`。
+
+## 只需修改一个配置文件
+
+**不需要在命令行输入模型、视频或数据集参数。** 所有路径和参数都在 [`config.py`](config.py) 中：
+
+- `YOLO_WEIGHTS`：纸箱 YOLO 模型；
+- `MLP_CHECKPOINT`：训练生成的尺寸回归模型；
+- `DATASET_CSV`：训练视频数据集清单；
+- `INPUT_VIDEO` 与 `OUTPUT_VIDEO`：预测输入和标注结果视频；
+- `CARTON_CLASS`、`BORDER_MARGIN`、`MIN_SAMPLES`：YOLO 类别和特征采集参数；
+- `PREDICTION_FEATURES`：仅供 `predict.py` 单独验证 MLP 的 9 维输入。
+
+默认约定是把 YOLO 权重放在 `models/carton_yolo.pt`，训练后 MLP 写入 `models/carton_mlp.pt`，视频放在 `data/` 下。请先按现场路径和类别编号编辑 `config.py`。
 
 ## 视频数据集
 
-训练输入就是**带尺寸标签的视频**，而不是预先计算的特征。创建 `carton_dataset.csv`，每行一个视频及其真实尺寸（单位统一为 mm 或 cm）：
+训练输入是**带尺寸标签的视频**。在 `config.py` 所指向的位置创建 CSV，每行一个视频及真实尺寸（单位统一为 mm 或 cm）：
 
 ```csv
 video,length,width,height
@@ -14,23 +27,14 @@ videos/carton_002.mp4,500,350,280
 
 视频路径相对于 CSV 文件所在目录。每段视频应该只包含一个待测纸箱，并覆盖纸箱完整进入画面、在画面中央移动、再部分离开画面的过程。`length,width,height` 是人工测量的真实标签。
 
-## 安装、训练与预测
+## 运行
 
 ```bash
 cd examples/carton_dimension
 python -m pip install -r requirements.txt
-# 训练时会读取 CSV 中的视频，YOLO 自动提取 9 维特征，再训练 MLP
-python train_mlp.py carton_dataset.csv --yolo carton_yolo.pt --carton-class 0 --output carton_mlp.pt
-# 视频预测和带标注结果视频
-python run.py input.mp4 --yolo carton_yolo.pt --mlp carton_mlp.pt --carton-class 0 --output output/predicted.mp4
-# 直接对聚合后的 9 维特征执行 MLP 预测（用于排查模型）
-python predict.py --mlp carton_mlp.pt --features "0.35,0.22,0.077,0.01,0.01,0.004,0.37,0.24,0.089"
+python train_mlp.py  # 从 config.py 的 DATASET_CSV 视频训练，保存到 MLP_CHECKPOINT
+python run.py        # 对 config.py 的 INPUT_VIDEO 预测，输出 OUTPUT_VIDEO
+python predict.py    # 使用 config.py 的 PREDICTION_FEATURES 单独验证 MLP
 ```
 
-### 预测代码
-
-`run.py` 是正常生产预测入口：它从视频自动产生 9 维特征，并调用 `TorchMLPRegressor.predict()` 输出 `Length`、`Width`、`Height`。纸箱离开画面（或视频结束）后，结果会打印在终端；传入 `--output` 会保存带检测框、采集状态和预测值的标注 MP4。
-
-`predict.py` 是独立的 MLP 预测入口，供排查模型使用；输入既可为逗号分隔的 9 个数字，也可为 `.npy` 或带 `features` 键的 `.npz` 文件。
-
-`border_margin` 可过滤贴近边缘但尚未出画的抖动；`min_samples` 防止短暂检测触发回归。训练和推理时应保持这两个参数、相机、镜头、安装高度及纸箱距离一致。
+`run.py` 会在纸箱离开画面（或视频结束）后打印 `Length`、`Width`、`Height` 和有效帧数，并保存含检测框、采集状态和预测值的标注 MP4。训练和推理时应保持 `BORDER_MARGIN`、`MIN_SAMPLES`、相机、镜头、安装高度及纸箱距离一致。

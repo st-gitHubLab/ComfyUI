@@ -1,15 +1,13 @@
-"""Run carton detection, print predictions, and optionally create an annotated MP4."""
+"""Run prediction for the input/output video paths configured in config.py."""
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 
-
 from carton_dimension import CartonDimensionPipeline, DimensionResult, TorchMLPRegressor, UltralyticsCartonDetector
+from config import BORDER_MARGIN, CARTON_CLASS, INPUT_VIDEO, MIN_SAMPLES, MLP_CHECKPOINT, OUTPUT_VIDEO, YOLO_WEIGHTS
 
 
 def draw_overlay(frame, pipeline: CartonDimensionPipeline, result: DimensionResult | None) -> None:
-    """Draw detection/collection status and the prediction on a BGR frame."""
     import cv2
 
     bbox = pipeline.last_detection
@@ -28,29 +26,23 @@ def format_result(result: DimensionResult) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("video")
-    parser.add_argument("--yolo", required=True, help="YOLO weights trained with a carton class")
-    parser.add_argument("--mlp", required=True, help="checkpoint produced by train_mlp.py")
-    parser.add_argument("--carton-class", type=int)
-    parser.add_argument("--output", help="optional annotated MP4 output path")
-    args = parser.parse_args()
-
     import cv2
 
-    cap = cv2.VideoCapture(args.video)
+    cap = cv2.VideoCapture(str(INPUT_VIDEO))
     if not cap.isOpened():
-        raise SystemExit(f"Cannot open video: {args.video}")
-    pipeline = CartonDimensionPipeline(UltralyticsCartonDetector(args.yolo, args.carton_class), TorchMLPRegressor(args.mlp))
-    writer = None
-    if args.output:
-        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-        writer = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*"mp4v"), fps, (frame_width, frame_height))
-        if not writer.isOpened():
-            raise SystemExit(f"Cannot create output video: {args.output}")
+        raise SystemExit(f"Cannot open video configured in config.py: {INPUT_VIDEO}")
+    pipeline = CartonDimensionPipeline(
+        UltralyticsCartonDetector(str(YOLO_WEIGHTS), CARTON_CLASS),
+        TorchMLPRegressor(MLP_CHECKPOINT),
+        border_margin=BORDER_MARGIN,
+        min_samples=MIN_SAMPLES,
+    )
+    frame_width, frame_height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    Path(OUTPUT_VIDEO).parent.mkdir(parents=True, exist_ok=True)
+    writer = cv2.VideoWriter(str(OUTPUT_VIDEO), cv2.VideoWriter_fourcc(*"mp4v"), fps, (frame_width, frame_height))
+    if not writer.isOpened():
+        raise SystemExit(f"Cannot create output video configured in config.py: {OUTPUT_VIDEO}")
     try:
         while True:
             ok, frame = cap.read()
@@ -60,14 +52,12 @@ def main() -> None:
             if result is not None:
                 print(format_result(result))
             draw_overlay(frame, pipeline, result)
-            if writer is not None:
-                writer.write(frame)
+            writer.write(frame)
         if result := pipeline.flush():
             print(format_result(result))
     finally:
         cap.release()
-        if writer is not None:
-            writer.release()
+        writer.release()
 
 
 if __name__ == "__main__":

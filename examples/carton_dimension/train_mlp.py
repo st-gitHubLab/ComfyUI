@@ -1,7 +1,6 @@
-"""Train the carton MLP from labeled videos listed in a CSV manifest."""
+"""Train the carton MLP from the video dataset configured in config.py."""
 from __future__ import annotations
 
-import argparse
 import csv
 from pathlib import Path
 
@@ -9,14 +8,14 @@ import numpy as np
 import torch
 
 from carton_dimension import UltralyticsCartonDetector, extract_video_features
+from config import BORDER_MARGIN, CARTON_CLASS, DATASET_CSV, MIN_SAMPLES, MLP_CHECKPOINT, TRAIN_EPOCHS, YOLO_WEIGHTS
 
 
-def load_video_dataset(manifest_path: str, detector: UltralyticsCartonDetector, border_margin: int, min_samples: int) -> tuple[np.ndarray, np.ndarray]:
-    """Convert `video,length,width,height` manifest rows into MLP samples."""
-    manifest = Path(manifest_path)
+def load_video_dataset(manifest_path: Path, detector: UltralyticsCartonDetector) -> tuple[np.ndarray, np.ndarray]:
+    """Convert configured `video,length,width,height` manifest rows into MLP samples."""
     features: list[np.ndarray] = []
     targets: list[tuple[float, float, float]] = []
-    with manifest.open(newline="", encoding="utf-8") as handle:
+    with manifest_path.open(newline="", encoding="utf-8") as handle:
         rows = csv.DictReader(handle)
         required = {"video", "length", "width", "height"}
         if not rows.fieldnames or not required.issubset(rows.fieldnames):
@@ -24,43 +23,34 @@ def load_video_dataset(manifest_path: str, detector: UltralyticsCartonDetector, 
         for row_number, row in enumerate(rows, start=2):
             video = Path(row["video"])
             if not video.is_absolute():
-                video = manifest.parent / video
-            feature_vector = extract_video_features(video, detector, border_margin, min_samples)
+                video = manifest_path.parent / video
+            feature_vector = extract_video_features(video, detector, BORDER_MARGIN, MIN_SAMPLES)
             if feature_vector is None:
                 print(f"Skipping row {row_number}: insufficient fully-visible detections in {video}")
                 continue
             features.append(feature_vector)
             targets.append((float(row["length"]), float(row["width"]), float(row["height"])))
     if not features:
-        raise SystemExit("No usable training videos. Check YOLO weights, labels, and min-samples.")
+        raise SystemExit("No usable training videos. Check config.py, YOLO weights, labels, and MIN_SAMPLES.")
     return np.stack(features).astype("float32"), np.asarray(targets, dtype="float32")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("dataset", help="CSV: video,length,width,height; video paths are relative to this CSV")
-    parser.add_argument("--yolo", required=True, help="YOLO carton detector weights")
-    parser.add_argument("--carton-class", type=int)
-    parser.add_argument("--border-margin", type=int, default=2)
-    parser.add_argument("--min-samples", type=int, default=8)
-    parser.add_argument("--output", default="carton_mlp.pt")
-    parser.add_argument("--epochs", type=int, default=300)
-    args = parser.parse_args()
-
-    detector = UltralyticsCartonDetector(args.yolo, args.carton_class)
-    x, y = load_video_dataset(args.dataset, detector, args.border_margin, args.min_samples)
+    detector = UltralyticsCartonDetector(str(YOLO_WEIGHTS), CARTON_CLASS)
+    x, y = load_video_dataset(DATASET_CSV, detector)
     mean, std = x.mean(0), x.std(0).clip(1e-6)
     target_scale = y.std(0).clip(1e-6)
     model = torch.nn.Sequential(torch.nn.Linear(9, 32), torch.nn.ReLU(), torch.nn.Linear(32, 16), torch.nn.ReLU(), torch.nn.Linear(16, 3))
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
     inputs, targets = torch.tensor((x - mean) / std), torch.tensor(y / target_scale)
-    for _ in range(args.epochs):
+    for _ in range(TRAIN_EPOCHS):
         optimizer.zero_grad()
         loss = torch.nn.functional.mse_loss(model(inputs), targets)
         loss.backward()
         optimizer.step()
-    torch.save({"model": model.state_dict(), "feature_mean": torch.tensor(mean), "feature_std": torch.tensor(std), "target_scale": torch.tensor(target_scale)}, args.output)
-    print(f"saved {args.output}; videos={len(x)}; final normalized MSE={loss.item():.6f}")
+    MLP_CHECKPOINT.parent.mkdir(parents=True, exist_ok=True)
+    torch.save({"model": model.state_dict(), "feature_mean": torch.tensor(mean), "feature_std": torch.tensor(std), "target_scale": torch.tensor(target_scale)}, MLP_CHECKPOINT)
+    print(f"saved {MLP_CHECKPOINT}; videos={len(x)}; final normalized MSE={loss.item():.6f}")
 
 
 if __name__ == "__main__":
