@@ -10,6 +10,7 @@
 - `MLP_CHECKPOINT`：训练生成的尺寸回归模型；
 - `DATASET_CSV`：训练视频数据集清单；
 - `INPUT_VIDEO` 与 `OUTPUT_VIDEO`：预测输入和标注结果视频；
+- `DETECTION_OUTPUT_VIDEO` 与 `DETECTION_RESULTS_JSONL`：目标检测标注视频和逐帧结构化结果；
 - `CARTON_CLASS`、`BORDER_MARGIN`、`MIN_SAMPLES`：YOLO 类别和特征采集参数；
 - `PREDICTION_FEATURES`：仅供 `predict.py` 单独验证 MLP 的 9 维输入。
 
@@ -45,9 +46,12 @@ videos/carton_002.mp4,500,350,280
 ```bash
 cd examples/carton_dimension
 python -m pip install -r requirements.txt
+python detect.py     # 输出逐帧目标检测结果 JSONL 和检测框视频
 python train_mlp.py  # 从 config.py 的 DATASET_CSV 视频训练，保存到 MLP_CHECKPOINT
 python run.py        # 对 config.py 的 INPUT_VIDEO 预测，输出 OUTPUT_VIDEO
 python predict.py    # 使用 config.py 的 PREDICTION_FEATURES 单独验证 MLP
 ```
+
+`detect.py` 是独立的目标检测结果代码：每帧的类别、置信度、`bbox_xyxy`、宽、高、面积写入 `DETECTION_RESULTS_JSONL`，同时保存带检测框的视频到 `DETECTION_OUTPUT_VIDEO`。
 
 `run.py` 会在纸箱离开画面（或视频结束）后打印 `Length`、`Width`、`Height` 和有效帧数，并保存含检测框、采集状态和预测值的标注 MP4。训练和推理时应保持 `BORDER_MARGIN`、`MIN_SAMPLES`、相机、镜头、安装高度及纸箱距离一致。

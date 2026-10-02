@@ -37,3 +37,11 @@ def test_flush_predicts_carton_at_end_of_video():
     assert result is not None
     assert result.sampled_frames == 2
     assert not pipeline.collecting
+
+
+def test_detection_record_contains_bbox_and_confidence():
+    from examples.carton_dimension.carton_dimension import serialize_detections
+
+    record = serialize_detections(4, [BBox(1, 2, 11, 22, 0.87)], 0, "carton_or_demo_vehicle")
+    assert record["frame_index"] == 4
+    assert record["detections"] == [{"class_id": 0, "class_name": "carton_or_demo_vehicle", "confidence": 0.87, "bbox_xyxy": [1, 2, 11, 22], "width": 10.0, "height": 20.0, "area": 200.0}]

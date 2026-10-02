@@ -14,6 +14,8 @@ DETECTOR_KIND = "yolo"
 DATASET_CSV = PROJECT_DIR / "data" / "carton_dataset.csv"
 INPUT_VIDEO = PROJECT_DIR / "data" / "input.mp4"
 OUTPUT_VIDEO = PROJECT_DIR / "output" / "predicted.mp4"
+DETECTION_OUTPUT_VIDEO = PROJECT_DIR / "output" / "detections.mp4"
+DETECTION_RESULTS_JSONL = PROJECT_DIR / "output" / "detections.jsonl"
 
 # Keep these values identical for feature extraction during training and inference.
 BORDER_MARGIN = 2

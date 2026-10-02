@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol, Sequence
+from typing import Any, Protocol, Sequence
 
 import numpy as np
 
@@ -231,3 +231,22 @@ def build_detector(kind: str, yolo_weights: str | Path, carton_class: int | None
     if kind == "orange_demo":
         return OrangeDemoDetector()
     raise ValueError(f"Unsupported DETECTOR_KIND: {kind}")
+
+
+def serialize_detections(frame_index: int, detections: Sequence[BBox], class_id: int | None, class_name: str) -> dict[str, Any]:
+    """Convert one frame of detector output into JSON-serializable target results."""
+    return {
+        "frame_index": frame_index,
+        "detections": [
+            {
+                "class_id": class_id,
+                "class_name": class_name,
+                "confidence": round(box.confidence, 6),
+                "bbox_xyxy": [round(box.x1, 2), round(box.y1, 2), round(box.x2, 2), round(box.y2, 2)],
+                "width": round(box.width, 2),
+                "height": round(box.height, 2),
+                "area": round(box.area, 2),
+            }
+            for box in detections
+        ],
+    }
