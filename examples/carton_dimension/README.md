@@ -18,11 +18,10 @@
 
 ## 一键生成 Demo 数据
 
-仓库包含 `generate_demo_data.py`，会生成 18 段**固定摄像头**拍摄的橙色 Bug（甲壳虫风格）汽车在平直公路上行驶的训练视频。每辆 Bug 汽车的真实长、宽、高均不同；脚本同时生成带对应真实尺寸标签的 CSV 和一段未参与训练的待预测视频。执行后将 `config.py` 中的 `DETECTOR_KIND` 改成 `"orange_demo"`，即可在没有 YOLO 权重时完整验证训练和预测流程：
+仓库包含 `generate_demo_data.py`，会生成 18 段**固定摄像头**拍摄的橙色 Bug（甲壳虫风格）汽车在平直公路上行驶的训练视频。每辆 Bug 汽车的真实长、宽、高均不同；脚本同时生成带对应真实尺寸标签的 CSV 和一段未参与训练的待预测视频。Demo 默认已在 `config.py` 中启用 `DETECTOR_KIND = "orange_demo"`，即可在没有 YOLO 权重时完整验证训练和预测流程：
 
 ```bash
 python generate_demo_data.py
-# 编辑 config.py：DETECTOR_KIND = "orange_demo"
 python train_mlp.py
 python run.py
 ```
@@ -52,6 +51,6 @@ python run.py        # 对 config.py 的 INPUT_VIDEO 预测，输出 OUTPUT_VIDE
 python predict.py    # 使用 config.py 的 PREDICTION_FEATURES 单独验证 MLP
 ```
 
-`detect.py` 是独立的目标检测结果代码：每帧的类别、置信度、`bbox_xyxy`、宽、高、面积写入 `DETECTION_RESULTS_JSONL`，同时保存带检测框的视频到 `DETECTION_OUTPUT_VIDEO`。
+`detect.py` 是独立的目标检测结果代码：每帧的类别、置信度、`bbox_xyxy`、宽、高、面积写入 `DETECTION_RESULTS_JSONL`，同时保存带检测框的视频到 `DETECTION_OUTPUT_VIDEO`。脚本结束时会显示检测到的目标数量；如果数量为 0，会明确提示应使用 Demo 检测器或匹配的 YOLO 权重与类别。
 
 `run.py` 会在纸箱离开画面（或视频结束）后打印 `Length`、`Width`、`Height` 和有效帧数，并保存含检测框、采集状态和预测值的标注 MP4。训练和推理时应保持 `BORDER_MARGIN`、`MIN_SAMPLES`、相机、镜头、安装高度及纸箱距离一致。

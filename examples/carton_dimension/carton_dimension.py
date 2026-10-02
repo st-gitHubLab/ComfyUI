@@ -214,7 +214,9 @@ class OrangeDemoDetector:
         import cv2
 
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, np.array((5, 120, 120)), np.array((25, 255, 255)))
+        mask = cv2.inRange(hsv, np.array((3, 70, 80)), np.array((30, 255, 255)))
+        # MP4 compression slightly shifts the synthetic orange; close tiny gaps.
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((3, 3), dtype=np.uint8))
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         boxes = []
         for contour in contours:

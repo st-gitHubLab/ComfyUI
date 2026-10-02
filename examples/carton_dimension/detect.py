@@ -41,11 +41,13 @@ def main() -> None:
     try:
         with Path(DETECTION_RESULTS_JSONL).open("w", encoding="utf-8") as results:
             frame_index = 0
+            detected_targets = 0
             while True:
                 ok, frame = capture.read()
                 if not ok:
                     break
                 detections = detector.detect(frame)
+                detected_targets += len(detections)
                 results.write(json.dumps(detection_record(frame_index, detections), ensure_ascii=False) + "\n")
                 draw_detections(frame, detections)
                 writer.write(frame)
@@ -53,8 +55,11 @@ def main() -> None:
     finally:
         capture.release()
         writer.release()
+    print(f"Detector backend: {DETECTOR_KIND}; targets detected: {detected_targets}")
     print(f"Wrote detection JSONL: {DETECTION_RESULTS_JSONL}")
     print(f"Wrote annotated detection video: {DETECTION_OUTPUT_VIDEO}")
+    if detected_targets == 0:
+        raise SystemExit("No targets detected. For generated demo videos use DETECTOR_KIND = \"orange_demo\" in config.py; for real videos use yolo with matching weights and CARTON_CLASS.")
 
 
 if __name__ == "__main__":
