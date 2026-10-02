@@ -7,6 +7,8 @@ PROJECT_DIR = Path(__file__).resolve().parent
 YOLO_WEIGHTS = PROJECT_DIR / "models" / "carton_yolo.pt"
 MLP_CHECKPOINT = PROJECT_DIR / "models" / "carton_mlp.pt"
 CARTON_CLASS = 0
+# Use "yolo" for a real model; generate_demo_data.py uses "orange_demo".
+DETECTOR_KIND = "yolo"
 
 # Dataset and video paths. The CSV header is: video,length,width,height.
 DATASET_CSV = PROJECT_DIR / "data" / "carton_dataset.csv"

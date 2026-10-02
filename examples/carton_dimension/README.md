@@ -15,6 +15,19 @@
 
 默认约定是把 YOLO 权重放在 `models/carton_yolo.pt`，训练后 MLP 写入 `models/carton_mlp.pt`，视频放在 `data/` 下。请先按现场路径和类别编号编辑 `config.py`。
 
+## 一键生成 Demo 数据
+
+仓库包含 `generate_demo_data.py`，会生成 18 段橙色纸箱训练视频、带真实尺寸标签的 CSV，以及一段待预测视频。执行后将 `config.py` 中的 `DETECTOR_KIND` 改成 `"orange_demo"`，即可在没有 YOLO 权重时完整验证训练和预测流程：
+
+```bash
+python generate_demo_data.py
+# 编辑 config.py：DETECTOR_KIND = "orange_demo"
+python train_mlp.py
+python run.py
+```
+
+Demo 的尺寸标签是由画面中纸箱几何尺寸合成的，仅用于验证代码链路；实际项目请切回 `DETECTOR_KIND = "yolo"`，并使用真实测量标签和 YOLO 权重。
+
 ## 视频数据集
 
 训练输入是**带尺寸标签的视频**。在 `config.py` 所指向的位置创建 CSV，每行一个视频及真实尺寸（单位统一为 mm 或 cm）：

@@ -205,3 +205,29 @@ def extract_video_features(
         return None
     values = np.asarray(feature_frames, dtype=np.float32)
     return np.concatenate((values.mean(axis=0), values.std(axis=0), values.max(axis=0)))
+
+
+class OrangeCartonDetector:
+    """Detect the orange synthetic cartons emitted by generate_demo_data.py."""
+
+    def detect(self, frame: np.ndarray) -> Sequence[BBox]:
+        import cv2
+
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, np.array((5, 120, 120)), np.array((25, 255, 255)))
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        boxes = []
+        for contour in contours:
+            x, y, width, height = cv2.boundingRect(contour)
+            if width * height >= 100:
+                boxes.append(BBox(x, y, x + width, y + height, 1.0))
+        return boxes
+
+
+def build_detector(kind: str, yolo_weights: str | Path, carton_class: int | None) -> Detector:
+    """Create the configured production YOLO detector or deterministic demo detector."""
+    if kind == "yolo":
+        return UltralyticsCartonDetector(str(yolo_weights), carton_class)
+    if kind == "orange_demo":
+        return OrangeCartonDetector()
+    raise ValueError(f"Unsupported DETECTOR_KIND: {kind}")

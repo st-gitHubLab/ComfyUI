@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from carton_dimension import CartonDimensionPipeline, DimensionResult, TorchMLPRegressor, UltralyticsCartonDetector
-from config import BORDER_MARGIN, CARTON_CLASS, INPUT_VIDEO, MIN_SAMPLES, MLP_CHECKPOINT, OUTPUT_VIDEO, YOLO_WEIGHTS
+from carton_dimension import CartonDimensionPipeline, DimensionResult, TorchMLPRegressor, build_detector
+from config import BORDER_MARGIN, CARTON_CLASS, DETECTOR_KIND, INPUT_VIDEO, MIN_SAMPLES, MLP_CHECKPOINT, OUTPUT_VIDEO, YOLO_WEIGHTS
 
 
 def draw_overlay(frame, pipeline: CartonDimensionPipeline, result: DimensionResult | None) -> None:
@@ -32,7 +32,7 @@ def main() -> None:
     if not cap.isOpened():
         raise SystemExit(f"Cannot open video configured in config.py: {INPUT_VIDEO}")
     pipeline = CartonDimensionPipeline(
-        UltralyticsCartonDetector(str(YOLO_WEIGHTS), CARTON_CLASS),
+        build_detector(DETECTOR_KIND, YOLO_WEIGHTS, CARTON_CLASS),
         TorchMLPRegressor(MLP_CHECKPOINT),
         border_margin=BORDER_MARGIN,
         min_samples=MIN_SAMPLES,

@@ -7,11 +7,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from carton_dimension import UltralyticsCartonDetector, extract_video_features
-from config import BORDER_MARGIN, CARTON_CLASS, DATASET_CSV, MIN_SAMPLES, MLP_CHECKPOINT, TRAIN_EPOCHS, YOLO_WEIGHTS
+from carton_dimension import build_detector, extract_video_features
+from config import BORDER_MARGIN, CARTON_CLASS, DETECTOR_KIND, DATASET_CSV, MIN_SAMPLES, MLP_CHECKPOINT, TRAIN_EPOCHS, YOLO_WEIGHTS
 
 
-def load_video_dataset(manifest_path: Path, detector: UltralyticsCartonDetector) -> tuple[np.ndarray, np.ndarray]:
+def load_video_dataset(manifest_path: Path, detector) -> tuple[np.ndarray, np.ndarray]:
     """Convert configured `video,length,width,height` manifest rows into MLP samples."""
     features: list[np.ndarray] = []
     targets: list[tuple[float, float, float]] = []
@@ -36,7 +36,7 @@ def load_video_dataset(manifest_path: Path, detector: UltralyticsCartonDetector)
 
 
 def main() -> None:
-    detector = UltralyticsCartonDetector(str(YOLO_WEIGHTS), CARTON_CLASS)
+    detector = build_detector(DETECTOR_KIND, YOLO_WEIGHTS, CARTON_CLASS)
     x, y = load_video_dataset(DATASET_CSV, detector)
     mean, std = x.mean(0), x.std(0).clip(1e-6)
     target_scale = y.std(0).clip(1e-6)
