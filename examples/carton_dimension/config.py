@@ -16,11 +16,14 @@ INPUT_VIDEO = PROJECT_DIR / "data" / "input.mp4"
 OUTPUT_VIDEO = PROJECT_DIR / "output" / "predicted.mp4"
 DETECTION_OUTPUT_VIDEO = PROJECT_DIR / "output" / "detections.mp4"
 DETECTION_RESULTS_JSONL = PROJECT_DIR / "output" / "detections.jsonl"
+INSPECTION_RESULTS_JSONL = PROJECT_DIR / "output" / "inspection_results.jsonl"
 
 # Keep these values identical for feature extraction during training and inference.
 BORDER_MARGIN = 2
 MIN_SAMPLES = 8
 TRAIN_EPOCHS = 300
+# Foreign-object branch: (convex hull area - contour area) / convex hull area.
+HULL_DIFF_THRESHOLD = 0.12
 
 # Used by predict.py for direct MLP verification only. Feature order: mean/std/max of width, height, area.
 PREDICTION_FEATURES = (0.35, 0.22, 0.077, 0.01, 0.01, 0.004, 0.37, 0.24, 0.089)

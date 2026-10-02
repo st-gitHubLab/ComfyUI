@@ -252,3 +252,91 @@ def serialize_detections(frame_index: int, detections: Sequence[BBox], class_id:
             for box in detections
         ],
     }
+
+
+@dataclass(frozen=True)
+class ForeignObjectResult:
+    """Contour-based foreign-object inspection result for one carton ROI."""
+
+    contour_area: float
+    hull_area: float
+    hull_diff_ratio: float
+    is_abnormal: bool
+    bbox: BBox
+
+
+@dataclass(frozen=True)
+class InspectionResult:
+    """The two outputs requested for one frame: dimensions and foreign-object status."""
+
+    dimension: DimensionResult | None
+    foreign_object: ForeignObjectResult | None
+
+
+class ForeignObjectDetector:
+    """Detect non-convex contour defects inside a detected carton bounding box."""
+
+    def __init__(self, hull_diff_threshold: float = 0.12):
+        if not 0.0 <= hull_diff_threshold <= 1.0:
+            raise ValueError("hull_diff_threshold must be between 0 and 1")
+        self.hull_diff_threshold = hull_diff_threshold
+
+    def inspect(self, frame: np.ndarray, bbox: BBox | None) -> ForeignObjectResult | None:
+        """Measure contour/hull difference in the carton ROI and flag an abnormal object."""
+        if bbox is None:
+            return None
+        import cv2
+
+        frame_height, frame_width = frame.shape[:2]
+        clipped = bbox.clipped(frame_width, frame_height)
+        x1, y1, x2, y2 = map(round, (clipped.x1, clipped.y1, clipped.x2, clipped.y2))
+        roi = frame[y1:y2, x1:x2]
+        if roi.size == 0:
+            return None
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(cv2.GaussianBlur(gray, (5, 5), 0), 40, 120)
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            return ForeignObjectResult(0.0, 0.0, 0.0, False, clipped)
+        contour = max(contours, key=cv2.contourArea)
+        contour_area = float(cv2.contourArea(contour))
+        hull_area = float(cv2.contourArea(cv2.convexHull(contour)))
+        hull_diff_ratio = max(0.0, hull_area - contour_area) / max(hull_area, 1e-6)
+        return ForeignObjectResult(contour_area, hull_area, hull_diff_ratio, hull_diff_ratio >= self.hull_diff_threshold, clipped)
+
+
+@dataclass
+class CartonInspectionPipeline:
+    """Run dimension collection and foreign-object inspection from the same YOLO bbox."""
+
+    dimension_pipeline: CartonDimensionPipeline
+    foreign_object_detector: ForeignObjectDetector
+
+    def process(self, frame: np.ndarray) -> InspectionResult:
+        dimension = self.dimension_pipeline.process(frame)
+        foreign_object = self.foreign_object_detector.inspect(frame, self.dimension_pipeline.last_detection)
+        return InspectionResult(dimension, foreign_object)
+
+    def flush(self) -> InspectionResult:
+        return InspectionResult(self.dimension_pipeline.flush(), None)
+
+
+def serialize_inspection(result: InspectionResult) -> dict[str, Any]:
+    """Serialize the dimension and foreign-object branches for downstream consumers."""
+    dimension = result.dimension
+    foreign = result.foreign_object
+    return {
+        "dimension_result": None if dimension is None else {
+            "length": dimension.length,
+            "width": dimension.width,
+            "height": dimension.height,
+            "sampled_frames": dimension.sampled_frames,
+        },
+        "foreign_object_result": None if foreign is None else {
+            "contour_area": foreign.contour_area,
+            "hull_area": foreign.hull_area,
+            "hull_diff_ratio": foreign.hull_diff_ratio,
+            "is_abnormal": foreign.is_abnormal,
+            "bbox_xyxy": [foreign.bbox.x1, foreign.bbox.y1, foreign.bbox.x2, foreign.bbox.y2],
+        },
+    }

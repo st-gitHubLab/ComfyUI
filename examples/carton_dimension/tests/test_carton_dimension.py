@@ -45,3 +45,15 @@ def test_detection_record_contains_bbox_and_confidence():
     record = serialize_detections(4, [BBox(1, 2, 11, 22, 0.87)], 0, "carton_or_demo_vehicle")
     assert record["frame_index"] == 4
     assert record["detections"] == [{"class_id": 0, "class_name": "carton_or_demo_vehicle", "confidence": 0.87, "bbox_xyxy": [1, 2, 11, 22], "width": 10.0, "height": 20.0, "area": 200.0}]
+
+
+def test_inspection_serialization_has_both_branches():
+    from examples.carton_dimension.carton_dimension import (
+        DimensionResult, ForeignObjectResult, InspectionResult, serialize_inspection,
+    )
+
+    result = InspectionResult(DimensionResult(10, 20, 30, 8), ForeignObjectResult(90, 100, 0.1, True, BBox(1, 2, 11, 12)))
+    serialized = serialize_inspection(result)
+    assert serialized["dimension_result"]["length"] == 10
+    assert serialized["foreign_object_result"]["is_abnormal"] is True
+    assert serialized["foreign_object_result"]["hull_diff_ratio"] == 0.1

@@ -11,6 +11,7 @@
 - `DATASET_CSV`：训练视频数据集清单；
 - `INPUT_VIDEO` 与 `OUTPUT_VIDEO`：预测输入和标注结果视频；
 - `DETECTION_OUTPUT_VIDEO` 与 `DETECTION_RESULTS_JSONL`：目标检测标注视频和逐帧结构化结果；
+- `INSPECTION_RESULTS_JSONL`：尺寸回归与异物检测两个分支的联合输出；
 - `CARTON_CLASS`、`BORDER_MARGIN`、`MIN_SAMPLES`：YOLO 类别和特征采集参数；
 - `PREDICTION_FEATURES`：仅供 `predict.py` 单独验证 MLP 的 9 维输入。
 
@@ -52,5 +53,7 @@ python predict.py    # 使用 config.py 的 PREDICTION_FEATURES 单独验证 MLP
 ```
 
 `detect.py` 是独立的目标检测结果代码：每帧的类别、置信度、`bbox_xyxy`、宽、高、面积写入 `DETECTION_RESULTS_JSONL`，同时保存带检测框的视频到 `DETECTION_OUTPUT_VIDEO`。脚本结束时会显示检测到的目标数量；如果数量为 0，会明确提示应使用 Demo 检测器或匹配的 YOLO 权重与类别。
+
+`run.py` 增加异物检测分支：对纸箱 ROI 求最大轮廓面积、凸包面积和 `hull_diff_ratio = (hull_area - contour_area) / hull_area`，超过 `HULL_DIFF_THRESHOLD` 时输出 `ForeignObjectResult`（异常）。每帧的 `ForeignObjectResult` 与可用的 `DimensionResult` 会一起写到 `INSPECTION_RESULTS_JSONL`。
 
 `run.py` 会在纸箱离开画面（或视频结束）后打印 `Length`、`Width`、`Height` 和有效帧数，并保存含检测框、采集状态和预测值的标注 MP4。训练和推理时应保持 `BORDER_MARGIN`、`MIN_SAMPLES`、相机、镜头、安装高度及纸箱距离一致。
