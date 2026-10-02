@@ -1,4 +1,4 @@
-"""Generate a deterministic labeled vehicle-video dataset for an end-to-end demo."""
+"""Generate fixed-camera videos of differently sized cars on a straight road."""
 from __future__ import annotations
 
 import csv
@@ -11,32 +11,51 @@ from config import DATASET_CSV, INPUT_VIDEO
 VIDEO_SIZE = (640, 480)
 FPS = 20
 ROAD_TOP = 320
-# (vehicle body width, vehicle body height); labels below have a learnable relation.
-VEHICLES = [(130 + 10 * index, 70 + 5 * (index % 8)) for index in range(18)]
+# Fixed camera: all vehicles share this road, horizon, resolution, and scale.
+# Each tuple is a distinct real-world (length_mm, width_mm, height_mm).
+VEHICLES_MM = [
+    (3600, 1550, 1420), (3850, 1680, 1510), (4100, 1720, 1480),
+    (4300, 1800, 1600), (4500, 1750, 1520), (4700, 1880, 1650),
+    (4900, 1900, 1580), (5100, 1980, 1720), (5300, 1850, 1680),
+    (3750, 1620, 1500), (4050, 1780, 1570), (4350, 1700, 1630),
+    (4600, 1920, 1700), (4800, 1810, 1550), (5000, 2000, 1750),
+    (5200, 1860, 1660), (4400, 1960, 1740), (3950, 1640, 1460),
+]
 
 
-def draw_car(frame: np.ndarray, x: int, body_bottom: int, body_width: int, body_height: int) -> None:
-    """Draw one orange side-view car; its orange contour is used as the demo BBox."""
+def pixel_geometry(length_mm: int, width_mm: int, height_mm: int) -> tuple[int, int, int]:
+    """Project L/W/H to a repeatable fixed-camera three-quarter-view silhouette."""
+    body_length = round(length_mm / 21)
+    body_height = round(height_mm / 19)
+    visible_depth = round(width_mm / 42)
+    return body_length, body_height, visible_depth
+
+
+def draw_car(frame: np.ndarray, x: int, body_bottom: int, length_px: int, height_px: int, depth_px: int) -> None:
+    """Draw one orange three-quarter-view car; orange contour is the demo BBox."""
     import cv2
 
-    roof_height = round(body_height * 0.55)
-    wheel_radius = max(8, round(body_height * 0.18))
-    y = body_bottom - body_height
-    roof_left = x + round(body_width * 0.25)
-    roof_right = x + round(body_width * 0.72)
+    roof_height = round(height_px * 0.55)
+    wheel_radius = max(8, round(height_px * 0.18))
+    y = body_bottom - height_px
+    roof_left = x + round(length_px * 0.25)
+    roof_right = x + round(length_px * 0.72)
     body_top = y + roof_height
-    body_bottom = y + body_height
     orange = (0, 140, 255)
-    # A single connected silhouette ensures the color detector gets one BBox.
-    outline = np.array([(x, body_bottom), (x, body_top), (roof_left, body_top), (roof_left + 18, y), (roof_right - 18, y), (roof_right, body_top), (x + body_width, body_top), (x + body_width, body_bottom)], dtype=np.int32)
+    # The depth offset makes physical width visible with an unchanged camera.
+    outline = np.array([
+        (x, body_bottom), (x, body_top), (roof_left, body_top),
+        (roof_left + 18, y), (roof_right - 18, y), (roof_right + depth_px, body_top),
+        (x + length_px + depth_px, body_top), (x + length_px, body_bottom),
+    ], dtype=np.int32)
     cv2.fillPoly(frame, [outline], orange)
-    for wheel_x in (x + round(body_width * 0.22), x + round(body_width * 0.78)):
+    for wheel_x in (x + round(length_px * 0.22), x + round(length_px * 0.78)):
         cv2.circle(frame, (wheel_x, body_bottom), wheel_radius, (20, 20, 20), -1)
         cv2.circle(frame, (wheel_x, body_bottom), max(3, wheel_radius // 2), (180, 180, 180), -1)
 
 
 def draw_straight_road(frame: np.ndarray) -> None:
-    """Render a level, straight road with horizontal lane markings."""
+    """Render the stationary camera background: a level road and lane markings."""
     import cv2
 
     image_width, image_height = VIDEO_SIZE
@@ -47,7 +66,7 @@ def draw_straight_road(frame: np.ndarray) -> None:
         cv2.rectangle(frame, (x, ROAD_TOP + 86), (x + 48, ROAD_TOP + 92), (230, 230, 230), -1)
 
 
-def write_vehicle_video(path: Path, body_width: int, body_height: int) -> None:
+def write_vehicle_video(path: Path, length_mm: int, width_mm: int, height_mm: int) -> None:
     import cv2
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -55,15 +74,16 @@ def write_vehicle_video(path: Path, body_width: int, body_height: int) -> None:
     if not writer.isOpened():
         raise RuntimeError(f"Cannot create demo video: {path}")
     image_width, image_height = VIDEO_SIZE
-    positions = list(range(-body_width, image_width + 1, 18))
-    wheel_radius = max(8, round(body_height * 0.18))
+    length_px, height_px, depth_px = pixel_geometry(length_mm, width_mm, height_mm)
+    positions = list(range(-(length_px + depth_px), image_width + 1, 18))
+    wheel_radius = max(8, round(height_px * 0.18))
     body_bottom = ROAD_TOP - wheel_radius
     try:
         for x in positions:
             frame = np.empty((image_height, image_width, 3), dtype=np.uint8)
             draw_straight_road(frame)
-            draw_car(frame, x, body_bottom, body_width, body_height)
-            cv2.putText(frame, "DEMO CAR ON A STRAIGHT ROAD", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+            draw_car(frame, x, body_bottom, length_px, height_px, depth_px)
+            cv2.putText(frame, "FIXED CAMERA - STRAIGHT ROAD", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
             writer.write(frame)
     finally:
         writer.release()
@@ -73,20 +93,17 @@ def main() -> None:
     dataset_dir = DATASET_CSV.parent / "videos"
     DATASET_CSV.parent.mkdir(parents=True, exist_ok=True)
     rows = []
-    for index, (body_width, body_height) in enumerate(VEHICLES, start=1):
+    for index, (length_mm, width_mm, height_mm) in enumerate(VEHICLES_MM, start=1):
         filename = f"vehicle_{index:03}.mp4"
-        write_vehicle_video(dataset_dir / filename, body_width, body_height)
-        # Synthetic ground truth in mm, tied to video geometry for a learnable demo.
-        length = body_width * 30.0
-        width = body_height * 18.0
-        height = 0.35 * length + 0.25 * width
-        rows.append((f"videos/{filename}", length, width, height))
+        write_vehicle_video(dataset_dir / filename, length_mm, width_mm, height_mm)
+        rows.append((f"videos/{filename}", length_mm, width_mm, height_mm))
     with DATASET_CSV.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(("video", "length", "width", "height"))
         writer.writerows(rows)
-    write_vehicle_video(INPUT_VIDEO, 215, 108)
-    print(f"Created {len(rows)} vehicle training videos: {DATASET_CSV}")
+    # An unseen L/W/H combination uses exactly the same fixed-camera road.
+    write_vehicle_video(INPUT_VIDEO, 4650, 1830, 1620)
+    print(f"Created {len(rows)} fixed-camera vehicle training videos: {DATASET_CSV}")
     print(f"Created vehicle inference video: {INPUT_VIDEO}")
     print('Set DETECTOR_KIND = "orange_demo" in config.py before training this synthetic demo.')
 
