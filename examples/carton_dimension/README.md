@@ -17,7 +17,7 @@
 
 ## 一键生成 Demo 数据
 
-仓库包含 `generate_demo_data.py`，会生成 18 段橙色纸箱训练视频、带真实尺寸标签的 CSV，以及一段待预测视频。执行后将 `config.py` 中的 `DETECTOR_KIND` 改成 `"orange_demo"`，即可在没有 YOLO 权重时完整验证训练和预测流程：
+仓库包含 `generate_demo_data.py`，会生成 18 段橙色汽车训练视频、带真实尺寸标签的 CSV，以及一段待预测视频。执行后将 `config.py` 中的 `DETECTOR_KIND` 改成 `"orange_demo"`，即可在没有 YOLO 权重时完整验证训练和预测流程：
 
 ```bash
 python generate_demo_data.py
@@ -26,7 +26,7 @@ python train_mlp.py
 python run.py
 ```
 
-Demo 的尺寸标签是由画面中纸箱几何尺寸合成的，仅用于验证代码链路；实际项目请切回 `DETECTOR_KIND = "yolo"`，并使用真实测量标签和 YOLO 权重。
+Demo 的尺寸标签是由画面中汽车几何尺寸合成的，仅用于验证代码链路；实际项目请切回 `DETECTOR_KIND = "yolo"`，并使用真实测量标签和 YOLO 权重。
 
 ## 视频数据集
 

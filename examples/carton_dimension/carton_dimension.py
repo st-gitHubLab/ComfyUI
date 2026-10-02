@@ -207,8 +207,8 @@ def extract_video_features(
     return np.concatenate((values.mean(axis=0), values.std(axis=0), values.max(axis=0)))
 
 
-class OrangeCartonDetector:
-    """Detect the orange synthetic cartons emitted by generate_demo_data.py."""
+class OrangeDemoDetector:
+    """Detect the orange synthetic vehicles emitted by generate_demo_data.py."""
 
     def detect(self, frame: np.ndarray) -> Sequence[BBox]:
         import cv2
@@ -229,5 +229,5 @@ def build_detector(kind: str, yolo_weights: str | Path, carton_class: int | None
     if kind == "yolo":
         return UltralyticsCartonDetector(str(yolo_weights), carton_class)
     if kind == "orange_demo":
-        return OrangeCartonDetector()
+        return OrangeDemoDetector()
     raise ValueError(f"Unsupported DETECTOR_KIND: {kind}")
