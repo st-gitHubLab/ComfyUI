@@ -10,16 +10,18 @@ from config import DATASET_CSV, INPUT_VIDEO
 
 VIDEO_SIZE = (640, 480)
 FPS = 20
+ROAD_TOP = 320
 # (vehicle body width, vehicle body height); labels below have a learnable relation.
 VEHICLES = [(130 + 10 * index, 70 + 5 * (index % 8)) for index in range(18)]
 
 
-def draw_car(frame: np.ndarray, x: int, y: int, body_width: int, body_height: int) -> None:
+def draw_car(frame: np.ndarray, x: int, body_bottom: int, body_width: int, body_height: int) -> None:
     """Draw one orange side-view car; its orange contour is used as the demo BBox."""
     import cv2
 
     roof_height = round(body_height * 0.55)
     wheel_radius = max(8, round(body_height * 0.18))
+    y = body_bottom - body_height
     roof_left = x + round(body_width * 0.25)
     roof_right = x + round(body_width * 0.72)
     body_top = y + roof_height
@@ -33,6 +35,18 @@ def draw_car(frame: np.ndarray, x: int, y: int, body_width: int, body_height: in
         cv2.circle(frame, (wheel_x, body_bottom), max(3, wheel_radius // 2), (180, 180, 180), -1)
 
 
+def draw_straight_road(frame: np.ndarray) -> None:
+    """Render a level, straight road with horizontal lane markings."""
+    import cv2
+
+    image_width, image_height = VIDEO_SIZE
+    frame[:ROAD_TOP] = (235, 190, 120)  # blue sky in BGR
+    frame[ROAD_TOP:image_height] = (70, 70, 70)
+    cv2.rectangle(frame, (0, ROAD_TOP - 12), (image_width, ROAD_TOP), (65, 140, 65), -1)
+    for x in range(-30, image_width, 90):
+        cv2.rectangle(frame, (x, ROAD_TOP + 86), (x + 48, ROAD_TOP + 92), (230, 230, 230), -1)
+
+
 def write_vehicle_video(path: Path, body_width: int, body_height: int) -> None:
     import cv2
 
@@ -42,13 +56,14 @@ def write_vehicle_video(path: Path, body_width: int, body_height: int) -> None:
         raise RuntimeError(f"Cannot create demo video: {path}")
     image_width, image_height = VIDEO_SIZE
     positions = list(range(-body_width, image_width + 1, 18))
-    y = (image_height - body_height) // 2
+    wheel_radius = max(8, round(body_height * 0.18))
+    body_bottom = ROAD_TOP - wheel_radius
     try:
         for x in positions:
-            frame = np.full((image_height, image_width, 3), (92, 145, 83), dtype=np.uint8)
-            cv2.rectangle(frame, (0, y + body_height + 2), (image_width, image_height), (70, 70, 70), -1)
-            draw_car(frame, x, y, body_width, body_height)
-            cv2.putText(frame, "DEMO VEHICLE", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            frame = np.empty((image_height, image_width, 3), dtype=np.uint8)
+            draw_straight_road(frame)
+            draw_car(frame, x, body_bottom, body_width, body_height)
+            cv2.putText(frame, "DEMO CAR ON A STRAIGHT ROAD", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
             writer.write(frame)
     finally:
         writer.release()
