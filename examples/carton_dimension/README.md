@@ -18,7 +18,7 @@
 
 ## 一键生成 Demo 数据
 
-仓库包含 `generate_demo_data.py`，会生成 18 段**固定摄像头**拍摄的橙色汽车在平直公路上行驶的训练视频。每辆汽车的真实长、宽、高均不同；脚本同时生成带对应真实尺寸标签的 CSV 和一段未参与训练的待预测视频。执行后将 `config.py` 中的 `DETECTOR_KIND` 改成 `"orange_demo"`，即可在没有 YOLO 权重时完整验证训练和预测流程：
+仓库包含 `generate_demo_data.py`，会生成 18 段**固定摄像头**拍摄的橙色 Bug（甲壳虫风格）汽车在平直公路上行驶的训练视频。每辆 Bug 汽车的真实长、宽、高均不同；脚本同时生成带对应真实尺寸标签的 CSV 和一段未参与训练的待预测视频。执行后将 `config.py` 中的 `DETECTOR_KIND` 改成 `"orange_demo"`，即可在没有 YOLO 权重时完整验证训练和预测流程：
 
 ```bash
 python generate_demo_data.py
@@ -27,7 +27,7 @@ python train_mlp.py
 python run.py
 ```
 
-Demo 固定摄像头、道路和画面分辨率不变；汽车长、宽、高分别投影为车身长度、三分之四视角深度和车身高度，CSV 保存每辆车独立的真实 L/W/H 标签，仅用于验证代码链路；实际项目请切回 `DETECTOR_KIND = "yolo"`，并使用真实测量标签和 YOLO 权重。
+Demo 固定摄像头、道路和画面分辨率不变；Bug 汽车长、宽、高分别投影为车身长度、三分之四视角深度和车身高度，CSV 保存每辆车独立的真实 L/W/H 标签，仅用于验证代码链路；实际项目请切回 `DETECTOR_KIND = "yolo"`，并使用真实测量标签和 YOLO 权重。
 
 ## 视频数据集
 
